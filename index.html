@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Валютный журнал</title>
+<link rel="stylesheet" href="valuta.css">
+<header class="topbar">
+  <div class="brand"><a class="wordmark" href="#top">Валютный журнал</a><span class="prototype">Прототип</span></div>
+</header>
+<main>
+<div id="top" class="prototype-note"><strong>Прототип.</strong> Расчеты и PDF нужно сверить с документами перед подачей. Сделки хранятся в этом браузере.</div>
+<p id="storageNotice" class="warn" role="alert" hidden></p>
+<div class="hero">
+  <div class="hero-copy"><h1>От сделки<br> <span>до 3‑НДФЛ</span></h1><p>Учет USD, CNY и валютных облигаций по FIFO.</p><button class="primary hero-action" id="add">Добавить сделку</button></div>
+  <div class="hero-workspace">
+    <img class="ledger-glass" src="ledger-glass.webp" alt="" width="640" height="400">
+    <section id="journal-panel" class="journal-panel" aria-labelledby="journalHeading">
+      <div class="journal-head"><h2 id="journalHeading">Журнал сделок</h2><a href="#lots-panel">Партии FIFO</a><a href="#register">Регистр</a><button id="clearJournal" class="warn" type="button" disabled>Очистить журнал</button></div>
+      <div class="journal-tools"><label>Год отчета <select id="year"></select></label><label>Учебный сценарий <select id="demoChoice"><option value="usd">USD · FIFO и 3‑НДФЛ</option><option value="cny">CNY · НДФЛ удержал брокер</option><option value="mixed">USD и CNY · Облигации, FIFO и вычет</option><option value="ladder">USD · Валютная лесенка</option></select></label><button id="demo">Загрузить пример</button></div>
+      <p id="journalMessage" class="warn" role="status" hidden></p>
+      <div class="scroll journal-scroll" id="journal"></div>
+      <div id="heroCalculation" class="hero-calculation"></div>
+    </section>
+  </div>
+</div>
+<div class="feature-grid">
+  <section id="rates" class="feature"><h2>Курсы ЦБ</h2><p>Официальные курсы для пересчета в рубли.</p><div id="latestRates" class="scroll"></div><details><summary>Все курсы по датам</summary><label class="rate-select">Валюта <select id="rateCurrency"></select></label><p class="muted" id="rateCoverage"></p><div class="scroll rate-history" id="rateHistory"></div></details></section>
+  <section id="tax" class="feature tax-feature"><h2>Подготовка 3‑НДФЛ</h2><p>Скачайте черновик на бланке за 2025 год. Для 2026 года PDF формируется на том же бланке с пометкой.</p><div class="tax-feature-body"><img src="tax-paper.webp" alt="" width="260" height="290"><div id="taxOverview"></div></div><button class="primary" id="prepareTax">Подготовить 3‑НДФЛ</button></section>
+</div>
+<section class="workflow" id="help"><h2>Как это работает</h2><ol><li>Добавьте сделки</li><li>Проверьте списание по FIFO</li><li>Скачайте черновик 3‑НДФЛ</li></ol><button id="sampleCalculation">Разобрать учебный пример</button></section>
+<div class="cards" id="cards"></div>
+<section><h2>База по продаже валюты</h2><div class="fields">
+<label>Способ расчета <select id="fxMethod"><option value="cost">Расходы на приобретение по FIFO</option><option value="fixed">Имущественный вычет</option></select></label>
+<label id="fxLimitLabel" hidden>Доступный остаток годового вычета, ₽ <input id="fxLimit" type="number" min="0" max="250000" step="0.01" value="250000"></label>
+</div><div id="fxBase"></div><p class="muted">Для оценки базы доход распределяется по партиям пропорционально количеству. Партии со сроком владения от трех лет показываются отдельно. Лимит вычета общий для продаж иного имущества за год.</p></section>
+<section id="register"><div class="toolbar"><h2>Регистр для 3‑НДФЛ</h2><button id="export">Скачать CSV</button></div><p class="muted">Доходы и расходы по продажам за выбранный год. Комиссия за продажу валюты показана отдельно от расходов на ее покупку.</p><div class="scroll" id="report"></div></section>
+<section id="lots-panel"><h2>Открытые партии на конец года</h2><div class="scroll" id="lots"></div></section>
+<footer><p>Прототип ведет один общий портфель. Валюту от продажи облигаций он оценивает по курсу ЦБ на дату расчета. Это рабочее допущение для расходов при последующей продаже валюты. Сверьте расходы с подтверждающими документами.</p><p>CSV предназначен для подготовки декларации вручную. Купоны, погашения и специальные правила для отдельных выпусков требуют отдельного расчета. <a href="https://www.nalog.gov.ru/rn78/ifns/imns78_16/info/11815510/" target="_blank" rel="noopener">ФНС о ценных бумагах</a> · <a href="https://www.nalog.gov.ru/rn77/taxation/taxes/ndfl/nalog_vichet/im_nv/im_nv_pri/" target="_blank" rel="noopener">ФНС о вычете при продаже имущества</a></p></footer>
+</main>
+<dialog id="confirmDialog" aria-labelledby="confirmTitle"><form method="dialog">
+<h2 id="confirmTitle">Подтвердите действие</h2><p id="confirmMessage"></p>
+<div class="row"><button value="cancel" autofocus>Отмена</button><button class="primary" value="accept">Продолжить</button></div>
+</form></dialog>
+<dialog id="calculationDialog" aria-labelledby="calculationTitle"><form method="dialog">
+<div class="toolbar modal-heading"><h2 id="calculationTitle">Как получился расчет</h2><button class="close-button" aria-label="Закрыть окно расчета">Закрыть</button></div>
+<div id="calculationContent"></div>
+<button class="primary">Готово</button>
+</form></dialog>
+<dialog id="taxDialog" aria-labelledby="taxTitle"><form method="dialog">
+<div class="toolbar"><h2 id="taxTitle">Подготовка 3‑НДФЛ</h2><button aria-label="Закрыть">×</button></div>
+<div class="fields"><label>Налоговый год <select id="taxYear"></select></label></div>
+<p id="taxSummary" aria-live="polite"></p>
+<p><a id="taxFormLink" target="_blank" rel="noopener">Открыть формы ФНС</a></p>
+<p class="muted">PDF заполняет расчетные поля бланка. Сведения о налогоплательщике, источники дохода и итоговый налог нужно дополнить отдельно.</p>
+<label id="taxBondCodeLabel" hidden>Подтвержденный код вида операции для всех включенных продаж облигаций <input id="taxBondCode" inputmode="numeric" maxlength="2" placeholder="Две цифры"><small>Оставьте пустым, если коды различаются или их нужно уточнить. Тогда приложение 8 останется пустым.</small></label>
+<p class="warn" id="taxPdfError" role="alert"></p>
+<button class="primary" id="taxExport" type="button">Скачать предзаполненный PDF</button>
+</form></dialog>
+<dialog id="editor" aria-labelledby="formTitle"><form id="form">
+<div class="toolbar"><h2 id="formTitle">Новая сделка</h2><button type="button" id="close" aria-label="Закрыть">×</button></div>
+<div class="fields">
+<label>Тип операции <select name="type"><option value="fxBuy">Покупка валюты</option><option value="bondBuy">Покупка облигаций</option><option value="bondSell">Продажа облигаций</option><option value="fxSell">Продажа валюты</option></select></label>
+<label>Дата сделки <input name="date" type="date" required min="1992-01-01" max="9999-12-31"></label>
+<label>Валюта расчетов <select name="ccy" required><option value="USD">USD — доллар США</option><option value="CNY">CNY — китайский юань</option></select></label>
+<label id="security">ISIN / код выпуска <input name="isin" maxlength="30"></label>
+<label id="units">Количество облигаций <input name="qty" type="number" min="1" step="1"></label>
+<label id="amountLabel"><span></span><input name="amount" type="number" required min="0.000001" step="any"></label>
+<label id="settlement">Дата оплаты / получения валюты <input name="settle" type="date" min="1992-01-01" max="9999-12-31"></label>
+<label id="rateLabel">Курс ЦБ, ₽ за 1 ед. <input name="rate" type="number" min="0.000001" step="any"><a id="cbr" target="_blank" rel="noopener">Проверить курс на сайте ЦБ</a></label>
+<label id="feeLabel"><span></span><input name="fee" type="number" min="0" step="any" value="0"></label>
+<label id="taxModeLabel">Учет результата по облигациям <select name="taxMode"><option value="declare">Включить в регистр 3‑НДФЛ</option><option value="broker">Брокер полностью удержал НДФЛ</option></select></label>
+<label id="withheldLabel">Удержано НДФЛ по справке, ₽ <input name="withheld" type="number" min="0" step="0.01" value="0"></label>
+<label id="taxFxLabel">Из выручки списано на НДФЛ, в валюте <input name="taxFx" type="number" min="0" step="any" value="0"></label>
+</div>
+<p id="rubPreview" aria-live="polite"></p><p class="muted" id="hint"></p><p role="alert" class="warn" id="error"></p>
+<div class="row"><button class="primary">Сохранить</button><button type="button" id="remove" class="warn">Удалить</button></div>
+</form></dialog>
+<script src="tax-pdf.js"></script>
+<script>
+'use strict';
+const cbrRates={"2026-11-20":{"since":"2026-11-20","rates":{"USD":81.929,"CNY":12.2546}},"2026-11-19":{"since":"2026-11-19","rates":{"USD":82.2281,"CNY":12.3004}},"2026-11-18":{"since":"2026-11-18","rates":{"USD":82.4529,"CNY":12.3419}},"2026-11-17":{"since":"2026-11-17","rates":{"USD":82.5143,"CNY":12.3472}},"2026-11-16":{"since":"2026-11-14","rates":{"USD":82.1516,"CNY":12.3149}},"2026-11-15":{"since":"2026-11-14","rates":{"USD":82.1516,"CNY":12.3149}},"2026-11-14":{"since":"2026-11-14","rates":{"USD":82.1516,"CNY":12.3149}},"2026-11-13":{"since":"2026-11-13","rates":{"USD":82.9803,"CNY":12.4009}},"2026-11-12":{"since":"2026-11-12","rates":{"USD":82.6617,"CNY":12.3907}},"2026-11-11":{"since":"2026-11-11","rates":{"USD":82.5486,"CNY":12.3845}},"2026-11-10":{"since":"2026-11-10","rates":{"USD":82.7536,"CNY":12.3098}},"2026-11-09":{"since":"2026-11-07","rates":{"USD":82.1386,"CNY":12.2651}},"2026-11-08":{"since":"2026-11-07","rates":{"USD":82.1386,"CNY":12.2651}},"2026-11-07":{"since":"2026-11-07","rates":{"USD":82.1386,"CNY":12.2651}},"2026-11-06":{"since":"2026-11-06","rates":{"USD":81.7947,"CNY":12.257}},"2026-11-05":{"since":"2026-11-04","rates":{"USD":81.6699,"CNY":12.1816}},"2026-11-04":{"since":"2026-11-04","rates":{"USD":81.6699,"CNY":12.1816}},"2026-11-03":{"since":"2026-11-03","rates":{"USD":80.9734,"CNY":12.1714}},"2026-11-02":{"since":"2026-10-31","rates":{"USD":80.5573,"CNY":12.0873}},"2026-11-01":{"since":"2026-10-31","rates":{"USD":80.5573,"CNY":12.0873}},"2026-10-31":{"since":"2026-10-31","rates":{"USD":80.5573,"CNY":12.0873}},"2026-10-30":{"since":"2026-10-30","rates":{"USD":80.6761,"CNY":12.0844}},"2026-10-29":{"since":"2026-10-29","rates":{"USD":80.8664,"CNY":12.0816}},"2026-10-28":{"since":"2026-10-28","rates":{"USD":80.5307,"CNY":12.0677}},"2026-10-27":{"since":"2026-10-27","rates":{"USD":80.4909,"CNY":12.068}},"2026-10-26":{"since":"2026-10-24","rates":{"USD":80.5381,"CNY":12.0557}},"2026-10-25":{"since":"2026-10-24","rates":{"USD":80.5381,"CNY":12.0557}},"2026-10-24":{"since":"2026-10-24","rates":{"USD":80.5381,"CNY":12.0557}},"2026-10-23":{"since":"2026-10-23","rates":{"USD":81.1255,"CNY":12.146}},"2026-10-22":{"since":"2026-10-22","rates":{"USD":81.9739,"CNY":12.2806}}};
+const names={fxBuy:'Покупка валюты',fxSell:'Продажа валюты',bondBuy:'Покупка облигаций',bondSell:'Продажа облигаций'};
+const isBond=t=>t.type.startsWith('bond');
+const day=t=>isBond(t)?t.settle||t.date:t.date;
+const eps=1e-9;
+const cents=n=>Math.round((n+Number.EPSILON*Math.abs(n))*100);
+function calculate(trades){
+  const pools=new Map(), sales=[];
+  function pool(key){if(!pools.has(key))pools.set(key,[]);return pools.get(key)}
+  function credit(key,qty,cost,t){pool(key).push({qty,unit:cost/qty,t,key})}
+  function debit(key,qty,t){
+    const lots=pool(key);
+    if(lots.reduce((sum,l)=>sum+l.qty,0)+eps<qty)throw Error(day(t)+' · '+names[t.type]+' · недостаточно '+key);
+    const parts=[];
+    for(const l of lots){
+      if(qty<=eps)break;
+      const used=Math.min(l.qty,qty);
+      if(used<=0)continue;
+      parts.push({qty:used,cost:used*l.unit,t:l.t});
+      l.qty-=used;
+      qty-=used;
+    }
+    return parts;
+  }
+  const ordered=trades.map((t,i)=>({t,i})).sort((a,b)=>day(a.t).localeCompare(day(b.t))||a.t.date.localeCompare(b.t.date)||a.i-b.i);
+  for(const {t} of ordered){
+    const bondKey=t.isin;
+    if(t.type==='fxBuy')credit(t.ccy,t.amount,t.rate+t.fee,t);
+    if(t.type==='bondBuy'){
+      debit(t.ccy,t.amount+t.fee,t);
+      credit(bondKey,t.qty,(t.amount+t.fee)*t.rate,t);
+    }
+    if(t.type==='bondSell'){
+      const parts=debit(bondKey,t.qty,t);
+      sales.push({t,parts,income:t.amount*t.rate,fee:t.fee*t.rate});
+      const received=t.amount-t.fee-(t.taxFx||0);
+      if(received>eps)credit(t.ccy,received,received*t.rate,t);
+    }
+    if(t.type==='fxSell')sales.push({t,parts:debit(t.ccy,t.amount,t),income:t.rate,fee:t.fee});
+  }
+  for(const s of sales){
+    s.cost=s.parts.reduce((sum,p)=>sum+p.cost,0)+(isBond(s.t)?s.fee:0);
+    s.result=s.income-s.cost;
+  }
+  return {sales,lots:[...pools.values()].flat().filter(l=>l.qty>eps)};
+}
+function heldThreeYears(from,to){
+  const [year,month,day]=from.split('-').map(Number);
+  const anniversary=new Date(Date.UTC(year+3,month-1,day));
+  if(anniversary.getUTCMonth()!==month-1)anniversary.setUTCDate(0);
+  return to>=anniversary.toISOString().slice(0,10);
+}
+function fxTaxRows(sales,method,limit){
+  let remaining=cents(limit);
+  return sales.filter(s=>s.t.type==='fxSell').map(s=>{
+    const parts=s.parts.filter(p=>!heldThreeYears(day(p.t),day(s.t)));
+    const income=cents(s.income);
+    const taxableIncome=Math.min(income,cents(s.income*parts.reduce((sum,p)=>sum+p.qty,0)/s.t.amount));
+    const excluded=income-taxableIncome;
+    const costs=cents(parts.reduce((sum,p)=>sum+p.cost,0));
+    const deduction=Math.min(taxableIncome,method==='fixed'?remaining:costs);
+    if(method==='fixed')remaining-=deduction;
+    return {s,taxableIncome:taxableIncome/100,excluded:excluded/100,deduction:deduction/100,base:(taxableIncome-deduction)/100,
+      provisional:method==='cost'&&parts.some(p=>p.t.type==='bondSell')};
+  });
+}
+const $=id=>document.getElementById(id);
+const f=$('form'), fields=f.elements, key='currency-journal-v1';
+const rateDays=Object.keys(cbrRates).sort().reverse();
+const rateDigits=10;
+let rateContext='';
+let quoteTimer, quoteInputs='';
+const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Moscow'}).format(new Date());
+const currentYear=+today.slice(0,4);
+const fxSettingsKey=key+'-fx-settings';
+const storageSnapshot=new Map();
+function storageNotice(message){
+  $('storageNotice').hidden=false;
+  $('storageNotice').textContent=message;
+}
+function journalNotice(message){
+  $('journalMessage').textContent=message;
+  $('journalMessage').hidden=!message;
+}
+function confirmAction(message){
+  const dialog=$('confirmDialog');
+  $('confirmMessage').textContent=message;
+  dialog.returnValue='';
+  dialog.showModal();
+  return new Promise(resolve=>{
+    dialog.addEventListener('close',()=>resolve(dialog.returnValue==='accept'),{once:true});
+  });
+}
+function loadStored(name,fallback,validate){
+  try{
+    const raw=localStorage.getItem(name);
+    const data=raw?JSON.parse(raw):fallback;
+    validate(data);
+    storageSnapshot.set(name,raw);
+    return data;
+  }catch{
+    storageNotice('Не удалось прочитать сохраненные данные. Запись в поврежденное или недоступное хранилище заблокирована.');
+    return fallback;
+  }
+}
+function storeValue(name,value){
+  if(!storageSnapshot.has(name))throw Error('Сохранение недоступно. Проверьте доступ браузера к локальному хранилищу.');
+  if(localStorage.getItem(name)!==storageSnapshot.get(name))throw Error('Данные изменились в другой вкладке. Обновите эту вкладку перед сохранением.');
+  const raw=JSON.stringify(value);
+  localStorage.setItem(name,raw);
+  storageSnapshot.set(name,raw);
+}
+let trades=loadStored(key,[],data=>{
+  if(!Array.isArray(data)||data.some(t=>!t||!Object.hasOwn(names,t.type)||typeof t.date!=='string'||!Number.isFinite(t.amount)||!Number.isFinite(t.rate)))throw Error('Некорректный журнал');
+  calculate(data);
+}), editing=-1, visibleSales=[], fxRows=[];
+let fxSettings=loadStored(fxSettingsKey,{},data=>{
+  if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Некорректные настройки');
+});
+const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=(n,d=2)=>n.toLocaleString('ru-RU',{maximumFractionDigits:d});
+const rub=n=>fmt(n)+' ₽';
+const direction=t=>'<span class="pill '+(t.type.endsWith('Buy')?'direction-buy':'direction-sell')+'">'+names[t.type]+'</span>';
+function signedResult(value){
+  const rounded=cents(Math.abs(value));
+  const sign=rounded?(value<0?'−':'+'):'';
+  const tone=rounded?(value<0?'loss':'profit'):'flat';
+  return '<strong class="trade-result result-'+tone+'">'+sign+rub(rounded/100)+'</strong>';
+}
+const date=d=>d.split('-').reverse().join('.');
+const table=(cols,rows,empty)=>rows.length?'<table><thead><tr>'+cols.map(c=>'<th scope="col">'+c+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table>':'<p class="muted">'+empty+'</p>';
+function learningSale(){
+  const {sales}=calculate(demoTrades('usd'));
+  return fxTaxRows(sales,'cost',0)[0];
+}
+function showCalculation(s,fx,method='cost',sample=false){
+  const t=s.t,bond=isBond(t);
+  const quantity=bond?fmt(t.qty)+' шт.':fmt(t.amount,6)+' '+esc(t.ccy);
+  const asset=bond?esc(t.isin):esc(t.ccy);
+  const parts=s.parts.map(p=>'<li>Партия от '+date(day(p.t))+' · '+fmt(p.qty,6)+' '+(bond?'шт.':asset)+' × '+fmt(p.cost/p.qty,rateDigits)+' ₽ = <strong>'+rub(p.cost)+'</strong></li>').join('');
+  const fifoCost=s.parts.reduce((sum,p)=>sum+p.cost,0);
+  const income=bond?fmt(t.amount,6)+' '+esc(t.ccy)+' × '+fmt(t.rate,rateDigits)+' ₽ по курсу ЦБ = <strong>'+rub(s.income)+'</strong>.':'По сделке получено <strong>'+rub(s.income)+'</strong> до комиссии.';
+  const fee=s.fee?(bond?' Комиссия продажи '+rub(s.fee)+' добавлена к расходам.':' Комиссия продажи '+rub(s.fee)+' показана отдельно от расходов на приобретение валюты.'):'';
+  const taxable=fx?'<li><strong>Посчитайте базу по валюте.</strong> '+(fx.excluded?'Из дохода исключено '+rub(fx.excluded)+' за партии со сроком владения от трех лет. ':'')+'<span class="equation">'+rub(fx.taxableIncome)+' − '+rub(fx.deduction)+' = <strong>'+rub(fx.base)+'</strong>.</span> Базу уменьшили на '+(method==='fixed'?'доступный имущественный вычет.':'расходы на приобретение.')+'</li>':'';
+  const broker=t.taxMode==='broker'?'<p>Брокер полностью удержал НДФЛ. Продажа остается в журнале, а результат по облигациям исключен из регистра.</p>':'';
+  const provisional=fx?.provisional?'<p class="warn">Валютная выручка от облигаций оценена по курсу ЦБ. Сверьте расходы с документами.</p>':'';
+  $('calculationContent').innerHTML='<p class="muted">'+(sample?'Учебный пример · ':'')+names[t.type]+' · '+asset+' · '+date(day(t))+'</p>'+
+    '<ol class="calculation-steps"><li><strong>Определите доход.</strong> Продано '+quantity+'. '+income+'</li>'+
+    '<li><strong>Возьмите самые ранние покупки.</strong> FIFO списывает партии по очереди, пока не наберется проданное количество.<ul>'+parts+'</ul>Расход по партиям — '+rub(fifoCost)+'.'+fee+'</li>'+
+    '<li><strong>Вычтите расходы из дохода.</strong> <span class="equation">'+rub(s.income)+' − '+rub(s.cost)+' = '+signedResult(s.result)+'.</span></li>'+taxable+'</ol>'+
+    '<p class="calculation-result">'+(fx?'Расчетная база по валюте — <strong>'+rub(fx.base)+'</strong>':'Результат по облигациям — '+signedResult(s.result))+'</p>'+broker+provisional;
+  $('calculationDialog').showModal();
+}
+function explainTrade(i){
+  const trade=trades[i];
+  if(!trade||!trade.type.endsWith('Sell'))return;
+  const {annual,fx,method}=reportForYear(day(trade).slice(0,4));
+  const sale=annual.find(s=>s.t===trade);
+  if(sale)showCalculation(sale,fx.find(row=>row.s===sale),method);
+}
+function renderOverview(year,annual,included,fx){
+  const sale=annual.at(-1);
+  const example=!sale;
+  const current=sale||learningSale().s;
+  const exampleLabel=example?'Учебный пример':names[current.t.type]+' · '+date(day(current.t));
+  const quantity=isBond(current.t)?' шт.':' '+esc(current.t.ccy);
+  $('heroCalculation').innerHTML='<div class="toolbar"><h3>Списание по FIFO</h3><small>'+exampleLabel+'</small></div>'+
+    '<div class="calculation-preview-grid"><dl>'+current.parts.slice(0,3).map(p=>'<div><dt>'+date(day(p.t))+' · '+fmt(p.qty,6)+quantity+'</dt><dd>'+rub(p.cost)+'</dd></div>').join('')+
+    (current.parts.length>3?'<div><dt>Другие списанные партии</dt><dd>'+fmt(current.parts.length-3,0)+'</dd></div>':'')+
+    '</dl><dl><div><dt>Доход</dt><dd>'+rub(current.income)+'</dd></div><div><dt>Расход</dt><dd>'+rub(current.cost)+'</dd></div><div class="preview-total"><dt>Результат</dt><dd>'+signedResult(current.result)+'</dd></div></dl></div>'+
+    '<button type="button" '+(example?'data-example-calculation':'data-show-calculation="'+trades.indexOf(sale.t)+'"')+'>Как получился расчет</button>';
+  $('taxOverview').innerHTML='<dl><div><dt>Год отчета</dt><dd>'+esc(year)+'</dd></div><div><dt>Продажи в регистре</dt><dd>'+included.length+'</dd></div><div><dt>Расчетная база по валюте</dt><dd>'+rub(fx.reduce((sum,row)=>sum+row.base,0))+'</dd></div></dl>';
+}
+function reportForYear(year){
+  const taxYear=Number(year);
+  const yearOf=t=>Number(day(t).slice(0,4));
+  const hasTrades=trades.some(t=>yearOf(t)===taxYear);
+  const {sales,lots}=calculate(trades.filter(t=>yearOf(t)<=taxYear));
+  const annual=sales.filter(s=>yearOf(s.t)===taxYear);
+  const included=annual.filter(s=>s.t.taxMode!=='broker');
+  const method=fxSettings[year]?.method==='fixed'?'fixed':'cost';
+  const limit=Math.min(250000,Math.max(0,Number(fxSettings[year]?.limit??250000)||0));
+  return {hasTrades,annual,included,lots,method,fx:fxTaxRows(included,method,limit)};
+}
+function render(selected){
+  $('clearJournal').disabled=!trades.length;
+  const years=[...new Set([currentYear,...trades.map(t=>+day(t).slice(0,4))])].sort((a,b)=>b-a);
+  $('year').innerHTML=years.map(y=>'<option>'+y+'</option>').join('');
+  $('year').value=years.includes(+selected)?selected:currentYear;
+  const year=$('year').value;
+  $('fxMethod').value=fxSettings[year]?.method==='fixed'?'fixed':'cost';
+  $('fxLimit').value=fxSettings[year]?.limit??250000;
+  const {annual,included,lots,method,fx}=reportForYear(year);
+  visibleSales=included;
+  $('fxLimitLabel').hidden=method!=='fixed';
+  fxRows=fx;
+  renderOverview(year,annual,included,fx);
+  const sumFx=key=>fxRows.reduce((sum,row)=>sum+row[key],0);
+  $('fxBase').innerHTML='<p><strong>Расчетная база: '+rub(sumFx('base'))+'</strong> · Доход до вычета: '+rub(sumFx('taxableIncome'))+' · Уменьшение базы: '+rub(sumFx('deduction'))+' · Доход от партий со сроком от трех лет: '+rub(sumFx('excluded'))+'</p>'+
+    (fxRows.some(row=>row.provisional)?'<p class="warn">В расходах есть валюта от продажи облигаций, оцененная по курсу ЦБ. Для 3‑НДФЛ проверьте подтверждение этих расходов.</p>':'');
+  const brokerCount=annual.length-visibleSales.length;
+  const bondResult=visibleSales.filter(s=>s.t.type==='bondSell').reduce((sum,s)=>sum+s.result,0);
+  $('cards').innerHTML=[['Продажи за год',annual.length],['База по валюте',rub(sumFx('base'))],['Результат по облигациям в регистре',rub(bondResult)],['Продажи с полным удержанием брокером',brokerCount]].map(([label,value])=>'<div class="card"><span class="muted">'+label+'</span><strong>'+value+'</strong></div>').join('');
+  const journal=[...trades.entries()].sort((a,b)=>day(b[1]).localeCompare(day(a[1]))||b[0]-a[0]);
+  const results=new Map(calculate(trades).sales.map(s=>[s.t,s.result]));
+  $('journal').innerHTML=table(['Дата сделки','Операция','Актив и сумма','Рубли / курс ЦБ','Действия'],journal.map(([i,t])=>[
+    date(t.date)+(day(t)!==t.date?'<br><small>Расчет '+date(day(t))+'</small>':''),
+    direction(t)+(t.taxMode==='broker'?'<br><small>НДФЛ удержан брокером</small>':''),
+    (isBond(t)?esc(t.isin)+' · '+fmt(t.qty)+' шт.<br>':'')+fmt(t.amount,6)+' '+esc(t.ccy),
+    (isBond(t)?fmt(t.rate,rateDigits)+' ₽ / '+esc(t.ccy):rub(t.rate))+(results.has(t)?'<br>'+signedResult(results.get(t)):''),
+    '<div class="trade-actions"><button data-edit="'+i+'">Изменить</button>'+(t.type.endsWith('Sell')?'<button data-show-calculation="'+i+'">Разбор</button>':'')+'</div>'
+  ]),'Добавьте сделку или загрузите пример, чтобы проверить расчет.');
+  if(!journal.length){
+    const examples=demoTrades('usd');
+    $('journal').innerHTML='<p class="sample-caption">Учебный пример. Добавьте свою сделку или загрузите сценарий.</p>'+
+      table(['Дата','Операция','Сумма в валюте','Рубли / курс ЦБ'],[examples[0],examples[2],examples[3]].map(t=>[
+        date(t.date),direction(t),fmt(t.amount,6)+' '+t.ccy,isBond(t)?fmt(t.rate,rateDigits)+' ₽ / '+t.ccy:rub(t.rate)
+      ]),'');
+  }
+  $('report').innerHTML=table(['Дата дохода','Операция','Актив','Доход','Расход FIFO','Результат сделки','НДФЛ удержан','Расчет'],visibleSales.map(s=>[
+    date(day(s.t)),direction(s.t),esc(s.t.isin||s.t.ccy),rub(s.income),rub(s.cost),signedResult(s.result),
+    s.t.withheld?rub(s.t.withheld):'—','<button data-show-calculation="'+trades.indexOf(s.t)+'">Разбор</button>'
+  ]),'За выбранный год продаж для регистра нет.');
+  $('lots').innerHTML=table(['Дата поступления','Актив','Источник','Остаток','Стоимость единицы','Общая стоимость'],lots.map(l=>[
+    date(day(l.t)),esc(l.key),names[l.t.type],fmt(l.qty,6),fmt(l.unit,8)+' ₽',rub(l.qty*l.unit)
+  ]),'Открытых партий нет.');
+  $('export').disabled=!visibleSales.length;
+}
+function sync(updateRate=false){
+  const type=fields.type.value,bond=type.startsWith('bond');
+  const bondSale=type==='bondSell';
+  for(const name of ['taxMode','withheld','taxFx']){
+    $(name+'Label').hidden=!bondSale;
+    fields[name].disabled=!bondSale;
+  }
+  for(const [id,name] of [['security','isin'],['units','qty'],['settlement','settle']]){
+    $(id).hidden=!bond;fields[name].disabled=!bond;fields[name].required=bond&&name!=='settle';
+  }
+  $('rateLabel').firstChild.textContent=bond?'Курс ЦБ, ₽ за 1 ед. ':type==='fxBuy'?'Уплачено, ₽ без комиссии ':'Получено, ₽ до комиссии ';
+  $('cbr').hidden=!bond;
+  fields.rate.required=true;
+  $('amountLabel').firstElementChild.textContent=bond?'Сумма сделки в валюте до комиссии':'Количество валюты';
+  $('feeLabel').firstElementChild.textContent=bond?'Комиссия в валюте расчетов':'Комиссия в рублях';
+  const d=fields.settle.value||fields.date.value;
+  const ccy=fields.ccy.value.trim().toUpperCase();
+  const quote=bond?cbrRates[d]?.rates[ccy]:undefined;
+  const context=bond?d+'|'+ccy:'exchange';
+  if(updateRate&&rateContext!==context)fields.rate.value=quote??'';
+  rateContext=context;
+  fields.rate.min=bond?'0.0000000001':'0.000001';
+  $('cbr').href='https://www.cbr.ru/currency_base/daily/?UniDbQuery.Posted=True&UniDbQuery.To='+encodeURIComponent(d?date(d):'');
+  $('hint').className=bond?'muted':'exchange-hint';
+  $('hint').textContent=bond?(quote!==undefined?'Курс ЦБ на '+date(d)+' — '+fmt(quote,rateDigits)+' ₽ за 1 '+ccy+'.':'Для этой даты и валюты нет загруженной котировки. Введите курс ЦБ вручную.')+' Если дата расчетов пропущена, используется дата сделки.'+(bondSale?' Полное удержание отмечайте по справке брокера. Заполняйте списание в валюте только если налог вычли из этой выручки.':''):'Укажите фактическую сумму обмена в рублях и комиссию отдельно.';
+}
+function openForm(i=-1){
+  clearTimeout(quoteTimer);
+  editing=i;
+  fields.ccy.querySelector('[data-legacy]')?.remove();
+  f.reset();
+  if(i>=0&&!['USD','CNY'].includes(trades[i].ccy)){
+    const option=new Option(trades[i].ccy,trades[i].ccy);
+    option.dataset.legacy='';
+    fields.ccy.add(option);
+  }
+  if(i>=0){for(const [k,v] of Object.entries(trades[i]))if(fields[k])fields[k].value=v}
+  else fields.date.value=today;
+  $('formTitle').textContent=i<0?'Новая сделка':'Изменить сделку';
+  $('remove').hidden=i<0;$('error').textContent='';
+  rateContext='';
+  sync(i<0);$('editor').showModal();
+  quoteInputs='';
+  queueRubles(i>=0);
+}
+function queueRubles(keepActual=false){
+  const bond=fields.type.value.startsWith('bond');
+  const d=(bond&&fields.settle.value)||fields.date.value;
+  const ccy=fields.ccy.value;
+  const amount=Number(fields.amount.value);
+  const rate=bond?Number(fields.rate.value):cbrRates[d]?.rates[ccy];
+  const context=[fields.type.value,d,ccy,amount,rate].join('|');
+  if(quoteInputs===context)return;
+  quoteInputs=context;
+  clearTimeout(quoteTimer);
+  if(!bond&&!keepActual)fields.rate.value='';
+  $('rubPreview').textContent='';
+  if(!(amount>0))return;
+  if(!(rate>0)){
+    $('rubPreview').textContent=bond?'Введите курс, чтобы рассчитать сумму.':'Для этой даты курс ЦБ не загружен. Укажите фактическую сумму обмена.';
+    return;
+  }
+  $('rubPreview').textContent='Рассчитываем сумму…';
+  quoteTimer=setTimeout(()=>{
+    if(!$('editor').open)return;
+    const total=cents(amount*rate)/100;
+    if(!Number.isFinite(total)){
+      $('rubPreview').textContent='Сумма слишком велика для расчета.';
+      return;
+    }
+    if(!bond&&!keepActual&&!fields.rate.value&&total>0)fields.rate.value=total;
+    $('rubPreview').textContent=(bond?'Сумма сделки до комиссии: ':'Оценка по курсу ЦБ до комиссии: ')+rub(total);
+  },2000);
+}
+function save(next,year){
+  try{calculate(next);storeValue(key,next)}
+  catch(e){if($('editor').open)$('error').textContent=e.message;else journalNotice(e.message);return false}
+  trades=next;
+  journalNotice('');
+  render(year);
+  return true;
+}
+$('add').onclick=()=>openForm();
+$('clearJournal').onclick=async()=>{
+  if(!trades.length)return;
+  if(await confirmAction('Удалить все сделки из журнала за все годы? Это действие нельзя отменить.'))save([],$('year').value);
+};
+$('close').onclick=()=>$('editor').close();
+$('year').onchange=()=>render($('year').value);
+$('fxMethod').onchange=$('fxLimit').onchange=()=>{
+  const year=$('year').value;
+  const next={...fxSettings,[year]:{method:$('fxMethod').value,limit:Math.min(250000,Math.max(0,+$('fxLimit').value||0))}};
+  try{storeValue(fxSettingsKey,next);fxSettings=next}catch(e){storageNotice(e.message)}
+  render(year);
+};
+$('journal').onclick=e=>{const b=e.target.closest('[data-edit]');if(b)openForm(+b.dataset.edit)};
+function openLearningSale(){
+  const fx=learningSale();
+  showCalculation(fx.s,fx,'cost',true);
+}
+$('sampleCalculation').onclick=openLearningSale;
+for(const id of ['journal','report','heroCalculation']){
+  $(id).addEventListener('click',e=>{
+    const sale=e.target.closest('[data-show-calculation]');
+    if(sale)explainTrade(Number(sale.dataset.showCalculation));
+    else if(e.target.closest('[data-example-calculation]'))openLearningSale();
+  });
+}
+f.oninput=e=>{
+  sync(true);
+  queueRubles(e.target===fields.rate);
+};
+$('editor').addEventListener('close',()=>clearTimeout(quoteTimer));
+f.onsubmit=e=>{
+  e.preventDefault();
+  const t=Object.fromEntries(new FormData(f));
+  t.ccy=t.ccy.trim().toUpperCase();
+  if(t.ccy==='RUB'){$('error').textContent='Выберите иностранную валюту.';return}
+  if(isBond(t)){
+    t.isin=t.isin.trim().toUpperCase();
+    if(!/^[A-Z0-9][A-Z0-9._-]{3,29}$/.test(t.isin)){$('error').textContent='Введите ISIN или код выпуска от 4 символов.';return}
+    if(t.settle&&t.settle<t.date){$('error').textContent='Дата расчета должна быть не раньше даты сделки.';return}
+  }
+  for(const field of ['rate','fee','amount','qty','withheld','taxFx'])if(field in t)t[field]=Number(t[field]);
+  const gross=isBond(t)?(t.amount+t.fee)*t.rate:t.rate+t.fee;
+  if(!Number.isSafeInteger(cents(gross))||!Number.isSafeInteger(cents(t.withheld||0))||!Number.isFinite(t.amount)||(isBond(t)&&!Number.isSafeInteger(t.qty))){
+    $('error').textContent='Количество или сумма превышают диапазон точного расчета.';
+    return;
+  }
+  if(t.type.endsWith('Sell')&&t.fee>(isBond(t)?t.amount:t.rate)){$('error').textContent='Комиссия превышает выручку.';return}
+  if(t.type==='bondSell'&&t.taxFx>t.amount-t.fee+eps){$('error').textContent='Комиссия и списание налога превышают валютную выручку.';return}
+  const next=[...trades];
+  if(editing<0)next.push(t);else next[editing]=t;
+  if(save(next,day(t).slice(0,4)))$('editor').close();
+};
+$('remove').onclick=async()=>{if(await confirmAction('Удалить эту сделку?')&&save(trades.filter((_,i)=>i!==editing),$('year').value))$('editor').close()};
+const demos={
+  usd:[
+    {type:'fxBuy',date:'01-12',ccy:'USD',amount:1000,rate:90000,fee:0},
+    {type:'bondBuy',date:'02-03',ccy:'USD',isin:'DEMO2029',qty:5,amount:800,rate:92,fee:0},
+    {type:'bondSell',date:'06-20',ccy:'USD',isin:'DEMO2029',qty:5,amount:900,rate:96,fee:0},
+    {type:'fxSell',date:'07-08',ccy:'USD',amount:600,rate:59400,fee:0}
+  ],
+  cny:[
+    {type:'fxBuy',date:'01-12',ccy:'CNY',amount:10000,rate:120000,fee:0},
+    {type:'bondBuy',date:'02-03',ccy:'CNY',isin:'DEMO-CNY',qty:10,amount:8000,rate:12,fee:50},
+    {type:'bondSell',date:'06-20',ccy:'CNY',isin:'DEMO-CNY',qty:6,amount:5400,rate:13,fee:40,taxMode:'broker',withheld:1404,taxFx:108},
+    {type:'fxSell',date:'07-08',ccy:'CNY',amount:3000,rate:40500,fee:20}
+  ],
+  ladder:[
+    {type:'fxBuy',date:'01-12',ccy:'USD',amount:600,rate:54000,fee:0},
+    {type:'fxBuy',date:'01-19',ccy:'USD',amount:900,rate:82800,fee:0},
+    {type:'fxBuy',date:'01-26',ccy:'USD',amount:400,rate:38000,fee:0},
+    {type:'fxSell',date:'02-03',ccy:'USD',amount:850,rate:83300,fee:0},
+    {type:'fxSell',date:'02-10',ccy:'USD',amount:500,rate:47000,fee:0},
+    {type:'fxBuy',date:'02-17',ccy:'USD',amount:100,rate:9700,fee:0},
+    {type:'fxSell',date:'02-19',ccy:'USD',amount:650,rate:60450,fee:0}
+  ],
+  mixed:[
+    {type:'fxBuy',date:'01-12',yearOffset:-4,ccy:'USD',amount:1000,rate:70000,fee:0},
+    {type:'fxBuy',date:'02-03',ccy:'USD',amount:1000,rate:90000,fee:0},
+    {type:'fxBuy',date:'02-03',ccy:'CNY',amount:20000,rate:240000,fee:0},
+    {type:'bondBuy',date:'03-10',ccy:'USD',isin:'DEMO-MIX',qty:4,amount:300,rate:90,fee:5},
+    {type:'bondBuy',date:'04-14',ccy:'USD',isin:'DEMO-MIX',qty:5,amount:400,rate:95,fee:5},
+    {type:'bondSell',date:'05-22',settle:currentYear+'-05-25',ccy:'USD',isin:'DEMO-MIX',qty:6,amount:600,rate:100,fee:5,taxMode:'broker',withheld:1000,taxFx:10},
+    {type:'bondSell',date:'06-15',ccy:'USD',isin:'DEMO-MIX',qty:2,amount:220,rate:105,fee:2,taxMode:'declare',withheld:300,taxFx:0},
+    {type:'fxSell',date:'07-08',ccy:'USD',amount:1500,rate:165000,fee:0},
+    {type:'fxSell',date:'07-09',ccy:'CNY',amount:18000,rate:234000,fee:0}
+  ]
+};
+const demoTrades=id=>demos[id].map(({yearOffset=0,...t})=>({...t,date:(currentYear+yearOffset)+'-'+t.date}));
+$('demo').onclick=async()=>{
+  const choice=$('demoChoice').value;
+  const sample=demoTrades(choice);
+  const mixed=demoTrades('mixed');
+  const previousMixed=[...mixed.slice(0,3),{...mixed[7],rate:150000},mixed[8]];
+  const examples=[...Object.keys(demos).map(demoTrades),previousMixed];
+  const existingDemo=examples.some(example=>JSON.stringify(trades)===JSON.stringify(example));
+  if(trades.length&&!existingDemo){journalNotice('Пример можно загрузить в пустой журнал или вместо неизмененного учебного примера.');return}
+  if(await confirmAction(existingDemo?'Заменить текущий учебный пример выбранным?':'Добавить условные сделки с учебными курсами?'))save(sample,currentYear);
+};
+const csvCell=value=>'"'+String(value).replaceAll('"','""')+'"';
+const decimal=n=>(Math.sign(n)*cents(Math.abs(n))/100).toFixed(2).replace('.',',');
+function exportRegister(year,sales,currencyRows,method){
+  if(!sales.length)return;
+  const rows=[['Дата сделки','Дата дохода','Операция','Валюта','Код выпуска','Количество проданных облигаций','Сумма продажи в валюте','Курс ЦБ','Доход, ₽','Расход по сделке, ₽','Комиссия продажи, ₽','Результат сделки, ₽','НДФЛ удержан, ₽','Доход по валюте до вычета, ₽','Доход от партий со сроком от трех лет, ₽','Уменьшение базы по валюте, ₽','База по валюте, ₽','Способ уменьшения базы','Расходы по валюте от облигаций требуют сверки','Партии FIFO']];
+  const fxBySale=new Map(currencyRows.map(row=>[row.s,row]));
+  for(const s of sales){
+    const fx=fxBySale.get(s);
+    rows.push([
+    date(s.t.date),date(day(s.t)),names[s.t.type],s.t.ccy,s.t.isin||'',s.t.qty||'',String(s.t.amount).replace('.',','),isBond(s.t)?String(s.t.rate).replace('.',','):'',
+    decimal(s.income),decimal(s.cost),decimal(s.fee),decimal(s.result),s.t.withheld?decimal(s.t.withheld):'',
+    fx?decimal(fx.taxableIncome):'',fx?decimal(fx.excluded):'',fx?decimal(fx.deduction):'',fx?decimal(fx.base):'',
+    fx?(method==='fixed'?'Имущественный вычет':'Расходы на приобретение по FIFO'):'',fx?.provisional?'Да':'',
+    s.parts.map(p=>date(day(p.t))+' / '+names[p.t.type]+' / '+fmt(p.qty,6)+' ед. / '+decimal(p.cost)+' ₽').join(' | ')
+    ]);
+  }
+  const url=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(csvCell).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download='Регистр-3-НДФЛ-'+year+'.csv';a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+$('export').onclick=()=>exportRegister($('year').value,visibleSales,fxRows,$('fxMethod').value);
+function previewTaxYear(){
+  const year=$('taxYear').value;
+  const {hasTrades,included,annual,fx}=reportForYear(year);
+  const omitted=annual.length-included.length;
+  const base=fx.reduce((sum,row)=>sum+row.base,0);
+  const summary=$('taxSummary');
+  summary.className=hasTrades?'':'warn';
+  summary.textContent=!hasTrades?'Нет данных для расчета. За '+year+' год сделки не добавлены.':included.length?'Продаж в регистре: '+included.length+' · База по валюте: '+rub(base)+(omitted?' · Исключено по полному удержанию брокером: '+omitted:''):'За выбранный год нет продаж для регистра.';
+  $('taxBondCode').value='';
+  const supported=['2025','2026'].includes(year);
+  $('taxBondCodeLabel').hidden=!supported||!included.some(s=>s.t.type==='bondSell');
+  $('taxPdfError').textContent=!included.length?'':year==='2026'?'Черновик за 2026 год использует бланк за 2025 год. Для подачи используйте форму ФНС за 2026 год.':!supported?'Предзаполнение PDF доступно для 2025 и 2026 годов.':'';
+  $('taxExport').disabled=!included.length||!supported;
+  const form=$('taxFormLink');
+  form.href=year==='2025'?'https://www.nalog.gov.ru/rn77/news/activities_fts/16644102/':year==='2026'?'https://publication.pravo.gov.ru/document/0001202610300009':'https://www.nalog.gov.ru/rn77/taxation/taxes/ndfl/form_ndfl/';
+  form.textContent=year==='2025'||year==='2026'?'Форма ФНС за '+year+' год':'Формы ФНС по годам';
+}
+$('prepareTax').onclick=()=>{
+  const selected=$('year').value;
+  const years=[...new Set([currentYear,currentYear-1,...trades.map(t=>+day(t).slice(0,4))])].sort((a,b)=>b-a);
+  $('taxYear').innerHTML=years.map(y=>'<option>'+y+'</option>').join('');
+  $('taxYear').value=selected;
+  previewTaxYear();
+  $('taxDialog').showModal();
+};
+$('taxYear').onchange=previewTaxYear;
+$('taxExport').onclick=async()=>{
+  const year=$('taxYear').value;
+  const {hasTrades,included,fx,method}=reportForYear(year);
+  if(!hasTrades){previewTaxYear();return}
+  if(!included.length||!['2025','2026'].includes(year))return;
+  const code=$('taxBondCodeLabel').hidden?'':$('taxBondCode').value.trim();
+  const error=$('taxPdfError');
+  if(code&&!/^[0-9]{2}$/.test(code)){error.textContent='Укажите двухзначный код вида операции.';return}
+  if(fx.some(row=>row.provisional)&&!await confirmAction('Расходы по валюте от продажи облигаций рассчитаны по курсу ЦБ. Подтвердите, что сверили эти расходы с документами.'))return;
+  if(year!=='2026')error.textContent='';
+  $('taxExport').disabled=true;
+  try{
+    const bonds=included.filter(s=>s.t.type==='bondSell');
+    const bytes=await buildTaxPdf({
+      year,method,fxSales:fx.length,
+      fxDeduction:fx.reduce((sum,row)=>sum+cents(row.deduction),0),
+      bondCode:code,
+      bondIncome:bonds.reduce((sum,s)=>sum+cents(s.income),0),
+      bondCost:bonds.reduce((sum,s)=>sum+cents(s.cost),0)
+    });
+    const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    const link=document.createElement('a');
+    link.href=url;link.download='3-НДФЛ-'+year+'-черновик.pdf';link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(e){error.textContent='Не удалось сформировать PDF. '+e.message}
+  finally{
+    const selected=$('taxYear').value;
+    $('taxExport').disabled=!['2025','2026'].includes(selected)||!reportForYear(selected).included.length;
+  }
+};
+render(currentYear);
+const currencies=[...new Set(rateDays.flatMap(d=>Object.keys(cbrRates[d].rates)))].sort();
+const latest=rateDays[0];
+const rateText=value=>value.toLocaleString('ru-RU',{minimumFractionDigits:4,maximumFractionDigits:4});
+$('latestRates').innerHTML=table(['Дата','USD, ₽','CNY, ₽'],[[date(latest),rateText(cbrRates[latest].rates.USD),rateText(cbrRates[latest].rates.CNY)]],'Курсы отсутствуют.');
+$('rateCurrency').innerHTML=currencies.map(ccy=>'<option>'+ccy+'</option>').join('');
+$('rateCurrency').value='USD';
+$('rateCoverage').textContent=date(rateDays.at(-1))+' — '+date(rateDays[0])+' · '+currencies.length+' валют и расчетных единиц · ₽ за 1 единицу';
+function renderRates(){
+  const ccy=$('rateCurrency').value;
+  $('rateHistory').innerHTML=table(['Дата','Курс, ₽ за 1 '+ccy,'Курс действует с'],rateDays.map(d=>{
+    const {since,rates}=cbrRates[d];
+    return [date(d),rates[ccy]===undefined?'—':fmt(rates[ccy],rateDigits),date(since)];
+  }),'Курсы отсутствуют.');
+}
+$('rateCurrency').onchange=renderRates;
+renderRates();
+</script>
+</html>
